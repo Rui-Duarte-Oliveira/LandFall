@@ -4,9 +4,9 @@ LandFall is a high-performance Real-Time Strategy (RTS) game prototype built on 
 
 The project demonstrates the use of **ECS (Entity Component System)**, **Burst Compiler**, and **C# Job System** to handle unit logic, movement, and formations efficiently. It is designed with a deterministic architecture in mind, separating simulation logic from presentation views.
 
-> **⚠️ Work In Progress**: This project is currently in active development. Features are subject to change, and optimizations are ongoing.
+> **Work In Progress**: This project is currently in active development. Features are subject to change, and optimizations are ongoing.
 
-## ✨ Key Features
+## Key Features
 
 * **DOTS-Based Architecture:** All core gameplay logic (movement, state management, transforms) runs on the main simulation thread using high-performance ECS systems.
 * **RTS Controls:** * Classic "Box Selection" implemented via screen-to-world raycasting and spatial queries.
@@ -17,7 +17,7 @@ The project demonstrates the use of **ECS (Entity Component System)**, **Burst C
     * Uses interpolation (smooth visual transitions) separate from the raw simulation tick rate (`RTSGameTime`), ensuring smooth rendering even if the simulation runs at a fixed tick.
 * **Spatial Querying:** Custom systems for efficient entity lookup and selection.
 
-## 🚧 Known Issues & Roadmap
+## Known Issues & Roadmap
 
 As this is a prototype, the following areas are currently being iterated on:
 
@@ -25,7 +25,7 @@ As this is a prototype, the following areas are currently being iterated on:
 * **UI:** Basic debug UI implementation; lacking a full HUD.
 * **Combat:** Health and damage systems are stubbed but not fully visualized.
 
-## 📂 Project Structure
+## Project Structure
 
 * `Authoring/`: MonoBehaviours that convert standard GameObjects into ECS Entities (Baking).
 * `Components/`: Pure data structs (`IComponentData`) defining unit state (e.g., `MoveDestination`, `FormationSettings`).
