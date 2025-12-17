@@ -1,0 +1,22 @@
+{
+    "name": "RTS.Authoring",
+    "rootNamespace": "RTS.Core.Authoring",
+    "references": [
+        "RTS.Core",
+        "Unity.Entities",
+        "Unity.Entities.Hybrid",
+        "Unity.Mathematics",
+        "Unity.Collections",
+        "Unity.Transforms",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

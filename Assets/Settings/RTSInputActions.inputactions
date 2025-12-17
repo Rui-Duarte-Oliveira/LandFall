@@ -1,0 +1,75 @@
+{
+    "version": 1,
+    "name": "RTSInputActions",
+    "maps": [
+        {
+            "name": "Gameplay",
+            "id": "913d47d3-c1ae-4b63-8e97-b12721b49596",
+            "actions": [
+                {
+                    "name": "Move",
+                    "type": "Button",
+                    "id": "f3f62bb9-e9d4-417f-bc6c-ffbd147c183d",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "Select",
+                    "type": "Button",
+                    "id": "7d34fa12-5060-475b-a587-6f37e615186e",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "MousePosition",
+                    "type": "Value",
+                    "id": "ba677c21-130a-4a3f-8582-981c661e9db4",
+                    "expectedControlType": "Vector2",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": true
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "",
+                    "id": "f1cf2af5-967a-4d59-b22e-fb377fa5e5cf",
+                    "path": "<Mouse>/rightButton",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Move",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "3c1fdec1-ae47-4617-8ca9-165df1cbe2ce",
+                    "path": "<Mouse>/leftButton",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Select",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "d171a7bf-0719-4d68-9cda-38e49d121392",
+                    "path": "<Mouse>/position",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "MousePosition",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                }
+            ]
+        }
+    ],
+    "controlSchemes": []
+}

@@ -1,0 +1,22 @@
+{
+    "name": "RTS.Systems",
+    "rootNamespace": "RTS.Core.Systems",
+    "references": [
+        "RTS.Core",
+        "Unity.Entities",
+        "Unity.Mathematics",
+        "Unity.Collections",
+        "Unity.Burst",
+        "Unity.Transforms",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
