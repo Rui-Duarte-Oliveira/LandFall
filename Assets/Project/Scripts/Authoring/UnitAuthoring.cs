@@ -152,11 +152,8 @@ namespace RTS.Core.Authoring
                     StoppingDistance = 0.5f
                 });
                 SetComponentEnabled<MoveDestination>(entity, false);
-            }
-
-            if (authoring.useInterpolation)
-            {
-                AddComponent<InterpolateMovement>(entity);
+                
+                // Always add authoritative state for simulation
                 AddComponent(entity, new AuthoritativeTransform
                 {
                     Position = authoring.transform.position,
@@ -167,6 +164,11 @@ namespace RTS.Core.Authoring
                     Position = authoring.transform.position,
                     Rotation = authoring.transform.rotation
                 });
+            }
+
+            if (authoring.useInterpolation)
+            {
+                AddComponent<InterpolateMovement>(entity);
             }
 
             if (authoring.useAvoidance)

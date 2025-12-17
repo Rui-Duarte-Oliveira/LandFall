@@ -109,7 +109,6 @@ namespace RTS.Core.Systems
         public void OnDestroy(ref SystemState state) { }
 
         [BurstCompile]
-        [WithAll(typeof(InterpolateMovement))]
         private partial struct SyncLocalJob : IJobEntity
         {
             void Execute(ref LocalTransform transform, in AuthoritativeTransform auth)

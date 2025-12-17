@@ -127,24 +127,6 @@ namespace RTS.Core.Systems
                     }
                 }
 
-                //Also check LocalTransform for units without interpolation
-                if (closestUnit == Entity.Null)
-                {
-                    foreach (var (transform, entity) in
-                        SystemAPI.Query<RefRO<LocalTransform>>()
-                            .WithAll<UnitTag, SelectableTag, AliveState>()
-                            .WithNone<AuthoritativeTransform>()
-                            .WithEntityAccess())
-                    {
-                        float dist = math.distance(transform.ValueRO.Position, clickPos);
-                        if (dist < closestDist)
-                        {
-                            closestDist = dist;
-                            closestUnit = entity;
-                        }
-                    }
-                }
-
                 if (closestUnit != Entity.Null)
                 {
                     SelectUnit(closestUnit);
@@ -180,24 +162,6 @@ namespace RTS.Core.Systems
                 Vector3 screenPos = _mainCamera.WorldToScreenPoint(auth.ValueRO.Position);
 
                 //Check if on screen and within box
-                if (screenPos.z > 0 &&
-                    screenPos.x >= minX && screenPos.x <= maxX &&
-                    screenPos.y >= minY && screenPos.y <= maxY)
-                {
-                    SelectUnit(entity);
-                    selectedCount++;
-                }
-            }
-
-            //Also check LocalTransform
-            foreach (var (transform, entity) in
-                SystemAPI.Query<RefRO<LocalTransform>>()
-                    .WithAll<UnitTag, SelectableTag, AliveState>()
-                    .WithNone<AuthoritativeTransform>()
-                    .WithEntityAccess())
-            {
-                Vector3 screenPos = _mainCamera.WorldToScreenPoint(transform.ValueRO.Position);
-
                 if (screenPos.z > 0 &&
                     screenPos.x >= minX && screenPos.x <= maxX &&
                     screenPos.y >= minY && screenPos.y <= maxY)

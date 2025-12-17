@@ -2,6 +2,7 @@ using Unity.Entities;
 using Unity.Burst;
 using Unity.Mathematics;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using RTS.Core.Components;
 using RTS.Core.Tags;
 
@@ -9,23 +10,24 @@ namespace RTS.Core.Systems
 {
     /// <summary>
     /// Applies separation steering to prevent units from overlapping.
-    /// Uses parallel job for O(n²) neighbor checks.
+    /// Uses spatial hashing for O(N*k) neighbor checks (was O(N^2)).
     /// </summary>
     [BurstCompile]
     [UpdateInGroup(typeof(RTSGameplaySystemGroup))]
     [UpdateAfter(typeof(UnitMovementSystem))]
     public partial struct UnitAvoidanceSystem : ISystem
     {
-        private EntityQuery _unitsQuery;
+        private ComponentLookup<AuthoritativeTransform> _transformLookup;
+        private ComponentLookup<AvoidanceData> _avoidanceLookup;
 
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<RTSGameTime>();
+            state.RequireForUpdate<SpatialMapData>();
 
-            _unitsQuery = SystemAPI.QueryBuilder()
-                .WithAll<UnitTag, AliveState, AuthoritativeTransform, AvoidanceData>()
-                .Build();
+            _transformLookup = state.GetComponentLookup<AuthoritativeTransform>(true);
+            _avoidanceLookup = state.GetComponentLookup<AvoidanceData>(true);
         }
 
         [BurstCompile]
@@ -39,41 +41,26 @@ namespace RTS.Core.Systems
             if (!SystemAPI.IsComponentEnabled<SimulationTickEvent>(timeEntity))
                 return;
 
-            int unitCount = _unitsQuery.CalculateEntityCount();
-            if (unitCount <= 1) return;
-
             RTSGameTime gameTime = SystemAPI.GetSingleton<RTSGameTime>();
             float deltaTime = gameTime.SecondsPerTick;
+            
+            //Update lookups
+            _transformLookup.Update(ref state);
+            _avoidanceLookup.Update(ref state);
 
-            //Collect positions into arrays for fast lookup
-            var positions = new NativeArray<float3>(unitCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-            var radii = new NativeArray<float>(unitCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-
-            int index = 0;
-            foreach (var (auth, avoidance) in
-                SystemAPI.Query<RefRO<AuthoritativeTransform>, RefRO<AvoidanceData>>()
-                    .WithAll<UnitTag>()
-                    .WithAll<AliveState>())
-            {
-                positions[index] = auth.ValueRO.Position;
-                radii[index] = avoidance.ValueRO.Radius;
-                index++;
-            }
+            //Get spatial map
+            var spatialData = SystemAPI.GetSingleton<SpatialMapData>();
 
             //Schedule parallel avoidance job
             AvoidanceJob avoidanceJob = new AvoidanceJob
             {
                 DeltaTime = deltaTime,
-                AllPositions = positions,
-                AllRadii = radii,
-                UnitCount = unitCount
+                SpatialMap = spatialData.Map,
+                TransformLookup = _transformLookup,
+                AvoidanceLookup = _avoidanceLookup
             };
 
             state.Dependency = avoidanceJob.ScheduleParallel(state.Dependency);
-
-            //Dispose arrays after job completes
-            state.Dependency = positions.Dispose(state.Dependency);
-            state.Dependency = radii.Dispose(state.Dependency);
         }
 
         [BurstCompile]
@@ -85,42 +72,86 @@ namespace RTS.Core.Systems
         {
             public float DeltaTime;
 
-            [ReadOnly] public NativeArray<float3> AllPositions;
-            [ReadOnly] public NativeArray<float> AllRadii;
-            public int UnitCount;
+            [ReadOnly] public NativeParallelMultiHashMap<int, Entity> SpatialMap;
 
-            void Execute(ref AuthoritativeTransform authTransform, in AvoidanceData avoidance)
+            // SAFETY: We disable safety checks here because we need to read AuthoritativeTransform from neighbors
+            // while having write access to it on the current entity (via ref in Execute).
+            // We guarantee we do not read our own entity from this lookup in the loop.
+            [ReadOnly] 
+            [NativeDisableContainerSafetyRestriction]
+            public ComponentLookup<AuthoritativeTransform> TransformLookup;
+
+            [ReadOnly] public ComponentLookup<AvoidanceData> AvoidanceLookup;
+
+            void Execute(Entity entity, ref AuthoritativeTransform authTransform, in AvoidanceData avoidance)
             {
                 float3 myPos = authTransform.Position;
                 float myRadius = avoidance.Radius;
                 float3 separationForce = float3.zero;
                 int neighborCount = 0;
 
-                for (int i = 0; i < UnitCount; i++)
+                //Determine search radius (max possible avoidance interaction)
+                //We use a conservative estimate: myRadius + max_possible_other_radius * 2.5f factor
+                
+                int centerCell = SpatialIndexingSystem.PositionToCell(myPos);
+                
+                //Decode cell coordinates
+                int gridW = SpatialIndexingSystem.GRID_SIZE;
+                int cx = centerCell % gridW;
+                int cy = centerCell / gridW;
+
+                //Iterate 3x3 neighbors
+                for (int dy = -1; dy <= 1; dy++)
                 {
-                    float3 otherPos = AllPositions[i];
-                    float otherRadius = AllRadii[i];
+                    for (int dx = -1; dx <= 1; dx++)
+                    {
+                        int nx = cx + dx;
+                        int ny = cy + dy;
 
-                    float3 toOther = otherPos - myPos;
-                    toOther.y = 0;
+                        //Bounds check
+                        if (nx < 0 || nx >= gridW || ny < 0 || ny >= gridW)
+                            continue;
 
-                    float distanceSq = math.lengthsq(toOther);
-                    float combinedRadius = myRadius + otherRadius;
-                    float avoidanceRadius = combinedRadius * 2.5f;
-                    float avoidanceRadiusSq = avoidanceRadius * avoidanceRadius;
+                        int neighborCellIndex = ny * gridW + nx;
 
-                    //Skip self (distance ~= 0) and units outside range
-                    if (distanceSq < 0.001f || distanceSq >= avoidanceRadiusSq)
-                        continue;
+                        if (SpatialMap.TryGetFirstValue(neighborCellIndex, out Entity neighbor, out var it))
+                        {
+                            do
+                            {
+                                //Skip self
+                                if (neighbor == entity) continue;
 
-                    float distance = math.sqrt(distanceSq);
-                    float3 awayDir = -toOther / distance;
+                                //Manual component lookup
+                                if (!TransformLookup.HasComponent(neighbor) || !AvoidanceLookup.HasComponent(neighbor))
+                                    continue;
 
-                    float strength = 1f - (distance / avoidanceRadius);
-                    strength = strength * strength;
+                                float3 otherPos = TransformLookup[neighbor].Position;
+                                float otherRadius = AvoidanceLookup[neighbor].Radius;
 
-                    separationForce += awayDir * strength;
-                    neighborCount++;
+                                float3 toOther = otherPos - myPos;
+                                toOther.y = 0;
+
+                                float distanceSq = math.lengthsq(toOther);
+                                float combinedRadius = myRadius + otherRadius;
+                                float avoidanceRadius = combinedRadius * 2.5f;
+                                float avoidanceRadiusSq = avoidanceRadius * avoidanceRadius;
+
+                                //Optimization: Skip if outside strict range
+                                if (distanceSq < 0.001f || distanceSq >= avoidanceRadiusSq)
+                                    continue;
+
+                                float distance = math.sqrt(distanceSq);
+                                float3 awayDir = -toOther / distance;
+
+                                float strength = 1f - (distance / avoidanceRadius);
+                                strength = strength * strength;
+
+                                separationForce += awayDir * strength;
+                                neighborCount++;
+
+                            } while (SpatialMap.TryGetNextValue(out neighbor, ref it));
+                        }
+                    }
                 }
 
                 if (neighborCount > 0)

@@ -9,9 +9,17 @@ using RTS.Core.Components;
 namespace RTS.Core.Systems
 {
     /// <summary>
+    /// Singleton component that exposes the spatial map to other systems.
+    /// </summary>
+    public struct SpatialMapData : IComponentData
+    {
+        public NativeParallelMultiHashMap<int, Entity> Map;
+    }
+
+    /// <summary>
     /// Spatial partition for fast proximity lookups. 
     /// 
-    /// Uses a fixed-grid hash to avoid the O(n²) bottleneck of checking every unit against
+    /// Uses a fixed-grid hash to avoid the O(nï¿½) bottleneck of checking every unit against
     /// every other unit. This is the primary system for local avoidance, targeting, 
     /// and range checks.
     /// 
@@ -47,6 +55,14 @@ namespace RTS.Core.Systems
                 1000,
                 Allocator.Persistent
             );
+
+            //Create singleton to expose map to other systems
+            Entity singleton = state.EntityManager.CreateEntity();
+            state.EntityManager.AddComponentData(singleton, new SpatialMapData { Map = _spatialMap });
+            
+            #if UNITY_EDITOR
+            state.EntityManager.SetName(singleton, "SpatialMapData");
+            #endif
 
             state.RequireForUpdate<RTSGameTime>();
         }
@@ -144,7 +160,7 @@ namespace RTS.Core.Systems
 
             void Execute(
                 Entity entity,
-                in LocalTransform transform,
+                in AuthoritativeTransform transform,
                 ref SpatialCell cell,
                 in SpatiallyIndexedTag tag)
             {
